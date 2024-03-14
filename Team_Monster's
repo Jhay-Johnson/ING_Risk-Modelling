@@ -1,1 +1,261 @@
+#Task 1.1 – Logistic Regression task
+#Describe the dataset (e.g., descriptive statistics, missing values, target rate)
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+# Loading the dataset
+file_path = "https://files.challengerocket.com/files/lions-den-ing-2024/development_sample.csv"
+data = pd.read_csv(file_path)
+# Descriptive statistics
+print("Descriptive statistics:")
+print(data.describe())
+# Missing values
+print("\nMissing values:")
+print(data.isnull().sum())
+# Target rate
+target_rate = data['target'].mean() * 100 # Multiply by 100 to get percentage
+print(f"\nTarget rate (probability of default): {target_rate:.2f}%")
+# Categorical features
+categorical_features = data.select_dtypes(include=['object']).columns
+for feature in categorical_features:
+    print(f"\n{feature} distribution:")
+    print(data[feature].value_counts(normalize=True))
+# Correlation matrix
+corr_matrix = data.corr()
+plt.figure(figsize=(25, 25))
+sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f")
+plt.title("Correlation Matrix")
+plt.show()
+# Outlier detection 
+numerical_features = data.select_dtypes(include=['int64', 'float64']).columns
+for feature in numerical_features:
+    sns.boxplot(x=data[feature])
+    plt.title(f"Boxplot of {feature}")
+    plt.show()
+# Data distributions 
+for feature in numerical_features:
+    sns.histplot(data=data, x=feature, kde=True)
+    plt.title(f"Distribution of {feature}")
+    plt.show()
+
+# Calculate the following performance metrics: Accuracy, Precision, Recall and F1 score both in Testing and Training samples.
+
+import pandas as pd
+import statsmodels.api as sm
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+X = data.drop(columns=['target'])
+y = data['target']
+X_numeric = X.apply(pd.to_numeric, errors='coerce')
+X_numeric = X_numeric.dropna(axis=1)
+X_with_intercept = sm.add_constant(X_numeric)
+vif = pd.DataFrame()
+vif["Features"] = X_with_intercept.columns
+vif["VIF"] = [variance_inflation_factor(X_with_intercept.values, i) for i in range(X_with_intercept.shape[1])]
+print(vif)
+
+#Calculate the following performance metrics: Accuracy, Precision, Recall and F1 score both in Testing and Training samples
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+# Load training and testing datasets
+train_df = pd.read_csv("https://files.challengerocket.com/files/lions-den-ing-2024/development_sample.csv")
+test_df = pd.read_csv("https://files.challengerocket.com/files/lions-den-ing-2024/testing_sample.csv")
+
+train_df = train_df.drop(columns=['application_date'])
+test_df = test_df.drop(columns=['application_date'])
+
+# Drop rows with NaN target values
+train_df.dropna(subset=['target'], inplace=True)
+test_df.dropna(subset=['target'], inplace=True)
+
+# Encode categorical variables using one-hot encoding
+train_df = pd.get_dummies(train_df, columns=['Application_status', 'Var3', 'Var13'])
+test_df = pd.get_dummies(test_df, columns=['Application_status', 'Var3', 'Var13'])
+
+# Align the columns of training and testing datasets after encoding
+train_df, test_df = train_df.align(test_df, join='outer', axis=1, fill_value=0)
+
+# Split the development dataset into features (X) and target variable (y)
+X_train = train_df.drop(columns=['target'])
+y_train = train_df['target']
+
+# Split the testing dataset into features (X_test) and target variable (y_test)
+X_test = test_df.drop(columns=['target'])
+y_test = test_df['target']
+
+# Impute missing values with the mean of each column
+X_train.fillna(X_train.mean(), inplace=True)
+X_test.fillna(X_test.mean(), inplace=True)
+
+# Initialize and train the logistic regression model
+model = LogisticRegression()
+model.fit(X_train, y_train)
+
+# Predictions on training and testing data
+y_train_pred = model.predict(X_train)
+y_test_pred = model.predict(X_test)
+
+# Calculate performance metrics for training data
+accuracy_train = accuracy_score(y_train, y_train_pred)
+precision_train = precision_score(y_train, y_train_pred, average='binary')
+recall_train = recall_score(y_train, y_train_pred, average='binary')
+f1_train = f1_score(y_train, y_train_pred, average='binary')
+
+# Calculate performance metrics for testing data
+accuracy_test = accuracy_score(y_test, y_test_pred)
+precision_test = precision_score(y_test, y_test_pred, average='binary')
+recall_test = recall_score(y_test, y_test_pred, average='binary')
+f1_test = f1_score(y_test, y_test_pred, average='binary')
+
+# Print the results
+print("Performance metrics for training data:")
+print(f"Accuracy: {accuracy_train:.2f}")
+print(f"Precision: {precision_train:.2f}")
+print(f"Recall: {recall_train:.2f}")
+print(f"F1 Score: {f1_train:.2f}")
+
+print("\nPerformance metrics for testing data:")
+print(f"Accuracy: {accuracy_test:.2f}")
+print(f"Precision: {precision_test:.2f}")
+print(f"Recall: {recall_test:.2f}")
+print(f"F1 Score: {f1_test:.2f}")
+
+#Create the ROC curve (AUC) and explain the discriminatory power of the model both in Testing and Training samples.
+
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, roc_auc_score
+
+# Get predicted probabilities for positive class
+y_train_prob = model.predict_proba(X_train)[:, 1]
+y_test_prob = model.predict_proba(X_test)[:, 1]
+
+# Calculate ROC curve and AUC for training data
+fpr_train, tpr_train, _ = roc_curve(y_train, y_train_prob)
+auc_train = roc_auc_score(y_train, y_train_prob)
+
+# Calculate ROC curve and AUC for testing data
+fpr_test, tpr_test, _ = roc_curve(y_test, y_test_prob)
+auc_test = roc_auc_score(y_test, y_test_prob)
+
+# Plot ROC curves
+plt.figure(figsize=(8, 6))
+plt.plot(fpr_train, tpr_train, label=f'Training AUC = {auc_train:.2f}')
+plt.plot(fpr_test, tpr_test, label=f'Testing AUC = {auc_test:.2f}')
+plt.plot([0, 1], [0, 1], 'k--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate (FPR)')
+plt.ylabel('True Positive Rate (TPR)')
+plt.title('Receiver Operating Characteristic (ROC) Curve')
+plt.legend(loc="lower right")
+plt.show()
+
+#Task 1.2 – Challenger Model task
+
+#Propose and develop an alternative model to logistic regression to predict the probability of default for this portfolio, outlining its key features and advantages in the context of credit risk assessment.
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model.fit(X_train, y_train)
+y_train_pred_rf = rf_model.predict(X_train)
+y_test_pred_rf = rf_model.predict(X_test)
+
+# Calculate performance metrics for training data
+accuracy_train_rf = accuracy_score(y_train, y_train_pred_rf)
+precision_train_rf = precision_score(y_train, y_train_pred_rf)
+recall_train_rf = recall_score(y_train, y_train_pred_rf)
+f1_train_rf = f1_score(y_train, y_train_pred_rf)
+
+# Calculate performance metrics for testing data
+accuracy_test_rf = accuracy_score(y_test, y_test_pred_rf)
+precision_test_rf = precision_score(y_test, y_test_pred_rf)
+recall_test_rf = recall_score(y_test, y_test_pred_rf)
+f1_test_rf = f1_score(y_test, y_test_pred_rf)
+
+# Print the results
+print("Performance metrics for Random Forest Classifier (RF) on training data:")
+print(f"Accuracy: {accuracy_train_rf:.2f}")
+print(f"Precision: {precision_train_rf:.2f}")
+print(f"Recall: {recall_train_rf:.2f}")
+print(f"F1 Score: {f1_train_rf:.2f}")
+
+print("\nPerformance metrics for Random Forest Classifier (RF) on testing data:")
+print(f"Accuracy: {accuracy_test_rf:.2f}")
+print(f"Precision: {precision_test_rf:.2f}")
+print(f"Recall: {recall_test_rf:.2f}")
+print(f"F1 Score: {f1_test_rf:.2f}")
+
+# Compare and contrast the challenger model results with the logistic regression model you obtained in Task 1.1 
+
+# Performance metrics for Logistic Regression model
+accuracy_train_lr = accuracy_score(y_train, y_train_pred)
+precision_train_lr = precision_score(y_train, y_train_pred)
+recall_train_lr = recall_score(y_train, y_train_pred)
+f1_train_lr = f1_score(y_train, y_train_pred)
+
+accuracy_test_lr = accuracy_score(y_test, y_test_pred)
+precision_test_lr = precision_score(y_test, y_test_pred)
+recall_test_lr = recall_score(y_test, y_test_pred)
+f1_test_lr = f1_score(y_test, y_test_pred)
+
+# Performance metrics for Random Forest Classifier (challenger model)
+accuracy_train_rf = accuracy_score(y_train, y_train_pred_rf)
+precision_train_rf = precision_score(y_train, y_train_pred_rf)
+recall_train_rf = recall_score(y_train, y_train_pred_rf)
+f1_train_rf = f1_score(y_train, y_train_pred_rf)
+
+accuracy_test_rf = accuracy_score(y_test, y_test_pred_rf)
+precision_test_rf = precision_score(y_test, y_test_pred_rf)
+recall_test_rf = recall_score(y_test, y_test_pred_rf)
+f1_test_rf = f1_score(y_test, y_test_pred_rf)
+
+from sklearn.metrics import roc_curve, roc_auc_score
+
+# Calculate predicted probabilities for Logistic Regression
+y_train_prob_lr = model.predict_proba(X_train)[:, 1]
+y_test_prob_lr = model.predict_proba(X_test)[:, 1]
+
+# Calculate ROC curve and AUC for Logistic Regression
+fpr_train_lr, tpr_train_lr, _ = roc_curve(y_train, y_train_prob_lr)
+auc_train_lr = roc_auc_score(y_train, y_train_prob_lr)
+
+fpr_test_lr, tpr_test_lr, _ = roc_curve(y_test, y_test_prob_lr)
+auc_test_lr = roc_auc_score(y_test, y_test_prob_lr)
+
+# Calculate predicted probabilities for Random Forest Classifier
+y_train_prob_rf = rf_model.predict_proba(X_train)[:, 1]
+y_test_prob_rf = rf_model.predict_proba(X_test)[:, 1]
+
+# Calculate ROC curve and AUC for Random Forest Classifier
+fpr_train_rf, tpr_train_rf, _ = roc_curve(y_train, y_train_prob_rf)
+auc_train_rf = roc_auc_score(y_train, y_train_prob_rf)
+
+fpr_test_rf, tpr_test_rf, _ = roc_curve(y_test, y_test_prob_rf)
+auc_test_rf = roc_auc_score(y_test, y_test_prob_rf)
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 8))
+
+# Plot ROC curves for Logistic Regression
+plt.plot(fpr_train_lr, tpr_train_lr, label=f'Logistic Regression (Training AUC = {auc_train_lr:.2f})', color='blue')
+plt.plot(fpr_test_lr, tpr_test_lr, label=f'Logistic Regression (Testing AUC = {auc_test_lr:.2f})', color='skyblue')
+
+# Plot ROC curves for Random Forest Classifier
+plt.plot(fpr_train_rf, tpr_train_rf, label=f'Random Forest (Training AUC = {auc_train_rf:.2f})', color='green')
+plt.plot(fpr_test_rf, tpr_test_rf, label=f'Random Forest (Testing AUC = {auc_test_rf:.2f})', color='limegreen')
+
+# Plot random guessing line
+plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
+
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
+plt.legend()
+plt.grid(True)
+plt.show()
 
